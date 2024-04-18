@@ -26,4 +26,3 @@ Pixwall is a sleek and intuitive wallpaper app built using React Native and Type
 - [x] Add support for favorites and downloads
 - [x] Enhance UI/UX for a seamless experience
 
----
