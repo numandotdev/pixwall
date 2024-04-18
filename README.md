@@ -17,12 +17,12 @@ Pixwall is a sleek and intuitive wallpaper app built using React Native and Type
 
 ## Development Progress
 
-- [ ] Setup project structure and navigation
-- [ ] Implement Welcome, Home screens
-- [x] Integrate with Wallpaper API
-- [x] Implement JWT-based authentication
-- [x] Connect to MongoDB for data storage
-- [x] Implement user profile customization
-- [x] Add support for favorites and downloads
-- [x] Enhance UI/UX for a seamless experience
+- [x] Setup project structure and navigation
+- [x] Implement Welcome, Home screens
+- [ ] Integrate with Wallpaper API
+- [ ] Implement JWT-based authentication
+- [ ] Connect to MongoDB for data storage
+- [ ] Implement user profile customization
+- [ ] Add support for favorites and downloads
+- [ ] Enhance UI/UX for a seamless experience
 
