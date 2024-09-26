@@ -9,7 +9,7 @@ import { Redirect, router } from "expo-router";
 export default function index() {
     return (
         <View style={styles.container}>
-            {/* <Redirect href="/home" /> */}
+            <Redirect href="/home" />
             <Image
                 style={styles.bgImage}
                 source={require("../assets/images/Welcome.png")}

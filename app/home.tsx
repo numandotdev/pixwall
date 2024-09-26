@@ -2,75 +2,163 @@ import {
     widthPercentageToDP as wp,
     heightPercentageToDP as hp,
 } from "react-native-responsive-screen";
-import { Pressable, SafeAreaView, StyleSheet, Text, View, Image, TextInput, ScrollView, TouchableOpacity } from 'react-native'
-import React from 'react'
+import { Pressable, SafeAreaView, StyleSheet, Text, View, TextInput, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native'
+import { Image } from 'expo-image';
+import React, { useEffect, useState } from 'react'
 import { StatusBar } from 'expo-status-bar'
 import { Feather } from '@expo/vector-icons';
 import { router } from "expo-router";
+import axios from "axios";
+import { MasonryFlashList } from "@shopify/flash-list";
+import ImageCard from "@/components/ImageCard";
+import ModalView from "@/components/ModalView";
 
-export default function home() {
-    const categoriesList: String[] = ["artificial intelligent", "people", "Nature", "Anime", "movie", "place",];
-    const wallpaperList = [
-        require('../assets/images/wall-1.jpeg'),
-        require('../assets/images/wall-2.jpg'),
-        require('../assets/images/wall-3.webp'),
-        require('../assets/images/wall-4.jpg'),
-        require('../assets/images/wall-5.jpeg'),
-        require('../assets/images/wall-6.jpeg')
-    ];
+// Pixabay API key and base URL
+const PIXABAY_API_KEY = '46127393-89bb2908b49efd25030276fa5';
+const PIXABAY_API_URL = 'https://pixabay.com/api/';
+
+// Interface for the image object
+interface PixabayImage {
+    id: number;
+    webformatURL: string;
+    largeImageURL: string;
+    tags: string;
+    imageHeight: number;
+    imageWidth: number;
+}
+
+export default function HomeScreen() {
+    const [images, setImages] = useState<PixabayImage[]>([]);
+    const [selectedPhoto, setSelectedPhoto] = useState<PixabayImage | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false); // Loading state for infinite scroll
+    const [page, setPage] = useState(1); // Track the current page for pagination
+    const [searchQuery, setSearchQuery] = useState('');
+    const [hasMore, setHasMore] = useState(true); // To check if more images are available
+
+    const categories = ["", "backgrounds", "fashion", "nature", "science", "education", "feelings", "health", "people", "religion", "places", "animals", "industry", "computer", "food", "sports", "transportation", "travel", "buildings", "business", "music"];
+
+    // Fetch images from Pixabay API
+    const fetchImages = async (pageNum: number, query: string = '', orientation: string = '') => {
+        if (loading || loadingMore) return;
+
+        const setLoader = pageNum === 1 ? setLoading : setLoadingMore;
+        setLoader(true);
+        try {
+            const response = await axios.get<{ hits: PixabayImage[] }>(PIXABAY_API_URL, {
+                params: {
+                    key: PIXABAY_API_KEY,
+                    q: query,
+                    page: pageNum,
+                    per_page: 40,
+                    image_type: 'photo',
+                    orientation: orientation,
+                },
+            });
+
+            const fetchedImages = response.data.hits;
+            if (fetchedImages.length === 0) {
+                setHasMore(false); // No more images available
+            } else {
+                setImages((prevImages) => (pageNum === 1 ? fetchedImages : [...prevImages, ...fetchedImages]));
+            }
+        } catch (error) {
+            console.error('Error fetching images:', error);
+        } finally {
+            setLoader(false);
+        }
+    };
+
+    // Initial fetch when the component mounts
+    useEffect(() => {
+        fetchImages(1, searchQuery);
+    }, [searchQuery]);
+
+    // Load more images when reaching the end
+    const loadMoreImages = () => {
+        if (hasMore && !loadingMore) {
+            setPage((prevPage) => {
+                const nextPage = prevPage + 1;
+                fetchImages(nextPage, searchQuery);
+                return nextPage;
+            });
+        }
+    };
+
+    // Handle category wise search
+    const handleCategorySearch = (category: string) => {
+        setSearchQuery(category);
+        setPage(1);
+        setHasMore(true);
+    };
+
     return (
         <SafeAreaView style={styles.homeContainer}>
             <View style={styles.main}>
                 <View style={styles.heroContainer}>
                     <Text style={styles.brandName}>Pixwalls</Text>
-                    <Pressable style={styles.pfpContainer} onPress={() => router.push({ pathname: "/profile" })}>
-                        <Image resizeMode="center" style={styles.pfpImg} source={require('../assets/images/default-pfp.jpg')} />
+                    <Pressable style={styles.pfpContainer} onPress={() => router.push("/profile")}>
+                        <Image contentFit="cover" style={styles.pfpImg} source={require('../assets/images/default-pfp.jpg')} />
                     </Pressable>
                 </View>
                 <View style={styles.searchContainerMain}>
                     <View style={styles.searchContainer}>
                         <Feather name="search" size={20} color="#999" />
-                        <TextInput style={styles.searchInput} placeholder="Search for photos..." placeholderTextColor="#999" />
+                        <TextInput
+                            style={styles.searchInput}
+                            placeholder="Search for photos..."
+                            placeholderTextColor="#999"
+                            onSubmitEditing={(event) => setSearchQuery(event.nativeEvent.text)}
+                        />
                     </View>
                 </View>
                 <View style={styles.categories}>
-                    <ScrollView style={styles.categoriesContainer} horizontal={true} showsHorizontalScrollIndicator={false} >
-                        {
-                            categoriesList.map((category, index) => {
-                                return (
-                                    <Pressable key={index} style={[styles.categoriesItem, index == 0 && styles.firstCategoryItem]}>
-                                        <Text style={styles.categoriesItemText}>{category.toLowerCase()}</Text>
-                                    </Pressable>
-                                )
-                            })
+                    <FlatList
+                        data={categories}
+                        keyExtractor={(item, index) => index.toString()}
+                        renderItem={({ item, index }) => (
+                            <TouchableOpacity
+                                style={[styles.categoriesItem, index === 0 && styles.firstCategoryItem]}
+                                onPress={() => handleCategorySearch(item)}
+                            >
+                                <Text>{item.toLowerCase() || "all"}</Text>
+                            </TouchableOpacity>
+                        )}
+                        horizontal={true}
+                        showsHorizontalScrollIndicator={false}
+                    />
+                </View>
+                <View style={styles.wallContainer}>
+                    <MasonryFlashList
+                        data={images}
+                        numColumns={2}
+                        renderItem={({ item, index }) => (
+                            <ImageCard item={item} index={index} setSelectedPhoto={setSelectedPhoto} />
+                        )}
+                        estimatedItemSize={200}
+                        onEndReached={loadMoreImages}
+                        onEndReachedThreshold={0.5} // Trigger the fetch when the user is halfway through the content
+                        ListFooterComponent={
+                            loadingMore ? (
+                                <View style={styles.loaderContainer}>
+                                    <ActivityIndicator size="large" color="#ffffff" />
+                                </View>
+                            ) : null
                         }
-                    </ScrollView>
+                        contentContainerStyle={styles.listContainerStyle}
+                    />
                 </View>
-                <View style={styles.mainContent}>
-                    <ScrollView style={styles.photosContainer} showsVerticalScrollIndicator={false} >
-                        <View style={styles.photosContainerItemGroup} >
-                            {
-                                wallpaperList.map((path, index) => {
-                                    return (
-                                        <TouchableOpacity key={index} style={styles.photosContainerItem}>
-                                            <Image style={styles.photosContainerItemImg} resizeMode="cover" source={path} />
-                                        </TouchableOpacity>
-                                    )
-                                })
-                            }
-                        </View>
-                    </ScrollView>
-                </View>
+                {selectedPhoto && <ModalView selectedPhoto={selectedPhoto} setSelectedPhoto={setSelectedPhoto} />}
             </View>
             <StatusBar style="dark" />
         </SafeAreaView>
-    )
+    );
 }
 
 const styles = StyleSheet.create({
     homeContainer: {
         flex: 1,
-        backgroundColor: '#eee',
+        backgroundColor: '#010101',
     },
     main: {
         width: wp(100),
@@ -88,7 +176,7 @@ const styles = StyleSheet.create({
     brandName: {
         fontSize: hp(3),
         fontWeight: '700',
-        color: '#000',
+        color: '#f5f5f5',
     },
     pfpContainer: {
         width: 40,
@@ -104,73 +192,41 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
     },
     searchContainer: {
-        backgroundColor: '#fff',
+        backgroundColor: '#3C3D37',
         width: '100%',
         height: hp(6),
         flexDirection: 'row',
         alignItems: 'center',
-        borderRadius: 12,
+        borderRadius: 10,
         paddingHorizontal: 16,
         gap: 8,
     },
     searchInput: {
-        color: '#000',
+        color: '#fff',
         flex: 1,
     },
     categories: {
         width: wp(100),
-        // paddingHorizontal: 20,
-    },
-    categoriesContainer: {
-        width: 'auto',
     },
     categoriesItem: {
         marginRight: 8,
-        backgroundColor: '#fff',
+        backgroundColor: '#ddd',
         paddingHorizontal: 16,
         paddingVertical: 10,
-        borderRadius: 10,
+        borderRadius: 8,
     },
     firstCategoryItem: {
         marginLeft: 20,
     },
-    categoriesItemText: {},
-
-    mainContent: {
-        width: wp(100),
-        paddingHorizontal: 20,
-        // backgroundColor: 'tomato',
-        paddingVertical: 5,
-        height: 300,
-        flex: 3,
-    },
-    photosContainer: {
-        borderRadius: 10,
-        maxHeight: hp(86),
-        width: '100%',
-        flexGrow: 1,
-    },
-    photosContainerItemGroup: {
+    wallContainer: {
         flex: 1,
-        gap: 8,
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        height: 'auto',
-        paddingBottom: 100,
+        width: wp(100),
     },
-    photosContainerItem: {
-        backgroundColor: '#fff',
-        borderRadius: 10,
-        height: 300,
-        flexGrow: 1,
-        flexBasis: (wp(100) - 50) / 2,
-        maxWidth: '50%',
-        overflow: 'hidden',
+    listContainerStyle: {
+        paddingHorizontal: 20,
     },
-    photosContainerItemImg: {
-        width: '100%',
-        height: '100%',
-        objectFit: 'cover'
+    loaderContainer: {
+        paddingVertical: 20,
     },
+});
 
-})
